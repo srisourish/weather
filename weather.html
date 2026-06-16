@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather App</title>
+  <style>
+
+    /* ── Reset ──────────────────────────────────────────── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Page ───────────────────────────────────────────── */
+    body {
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0f1e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+    }
+
+    /* ── App shell ──────────────────────────────────────── */
+    .app {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    /* ── Title ──────────────────────────────────────────── */
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 500;
+      color: #a0b4cc;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    /* ── Search bar ─────────────────────────────────────── */
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .search-row input {
+      flex: 1;
+      padding: 13px 18px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      color: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-row input::placeholder { color: #556; }
+    .search-row input:focus { border-color: #4d9fff; }
+
+    .search-row button {
+      padding: 13px 22px;
+      background: #4d9fff;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .search-row button:hover  { background: #2e86ff; }
+    .search-row button:active { transform: scale(0.97); }
+
+    /* ── Status messages ────────────────────────────────── */
+    /* Loading spinner + text */
+    .loading {
+      text-align: center;
+      padding: 48px;
+      display: none;         /* hidden by default, shown by JS */
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #4d9fff;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p { color: #668; font-size: 14px; }
+
+    /* Error box */
+    .error {
+      background: rgba(231,76,60,0.15);
+      border: 1.5px solid rgba(231,76,60,0.4);
+      border-radius: 14px;
+      padding: 16px 20px;
+      color: #ff8a7a;
+      font-size: 14px;
+      text-align: center;
+      display: none;         /* hidden by default */
+      margin-bottom: 16px;
+    }
+
+    /* ── Main weather card ──────────────────────────────── */
+    .weather-card {
+      background: linear-gradient(145deg, #1a2744, #0f1a30);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 32px;
+      display: none;         /* hidden until we have data */
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* City name + country */
+    .city-name {
+      font-size: 26px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .country {
+      font-size: 14px;
+      color: #668;
+      margin-top: 2px;
+      margin-bottom: 28px;
+    }
+
+    /* Big temperature + icon row */
+    .temp-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .temperature {
+      font-size: 72px;
+      font-weight: 200;
+      letter-spacing: -3px;
+      line-height: 1;
+    }
+
+    /* Weather icon (emoji) */
+    .weather-icon { font-size: 64px; }
+
+    /* "Feels like 22°" */
+    .feels-like {
+      font-size: 14px;
+      color: #668;
+      margin-bottom: 6px;
+    }
+
+    /* "Clear sky" description */
+    .description {
+      font-size: 18px;
+      font-weight: 500;
+      color: #cde;
+      text-transform: capitalize;
+      margin-bottom: 28px;
+    }
+
+    /* ── Stats grid ─────────────────────────────────────── */
+    /* 3 equal columns: Humidity, Wind, Visibility */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .stat-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-icon  { font-size: 20px; margin-bottom: 6px; }
+    .stat-value { font-size: 18px; font-weight: 600; color: #fff; }
+    .stat-label { font-size: 11px; color: #668; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ── 5-day forecast strip ───────────────────────────── */
+    .forecast-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #668;
+      margin-bottom: 12px;
+    }
+
+    .forecast-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;       /* scroll horizontally if needed */
+      padding-bottom: 4px;
+    }
+
+    /* Hide the scrollbar (still scrollable) */
+    .forecast-strip::-webkit-scrollbar { display: none; }
+
+    .forecast-day {
+      flex-shrink: 0;         /* don't squish the day cards */
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 12px 14px;
+      text-align: center;
+      min-width: 72px;
+    }
+
+    .forecast-day .day-name { font-size: 11px; color: #668; margin-bottom: 6px; text-transform: uppercase; }
+    .forecast-day .day-icon { font-size: 22px; margin-bottom: 6px; }
+    .forecast-day .day-temp { font-size: 15px; font-weight: 600; }
+    .forecast-day .day-low  { font-size: 12px; color: #668; margin-top: 2px; }
+
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <h1>⛅ Weather</h1>
+
+  <!-- Search -->
+  <div class="search-row">
+    <input type="text" id="city-input" placeholder="Enter city name…" />
+    <button id="search-btn">Search</button>
+  </div>
+
+  <!-- States: loading / error / card -->
+  <div class="loading"      id="loading">
+    <div class="spinner"></div>
+    <p>Fetching weather…</p>
+  </div>
+
+  <div class="error"        id="error"></div>
+
+  <div class="weather-card" id="weather-card">
+    <div class="city-name"   id="city-name"></div>
+    <div class="country"     id="country"></div>
+
+    <div class="temp-row">
+      <div class="temperature"  id="temperature"></div>
+      <div class="weather-icon" id="weather-icon"></div>
+    </div>
+
+    <div class="feels-like"  id="feels-like"></div>
+    <div class="description" id="description"></div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-icon">💧</div>
+        <div class="stat-value" id="humidity"></div>
+        <div class="stat-label">Humidity</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">💨</div>
+        <div class="stat-value" id="wind"></div>
+        <div class="stat-label">Wind</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">👁️</div>
+        <div class="stat-value" id="visibility"></div>
+        <div class="stat-label">Visibility</div>
+      </div>
+    </div>
+
+    <div class="forecast-title">5-Day Forecast</div>
+    <div class="forecast-strip" id="forecast-strip"></div>
+  </div>
+</div>
+
+<script>
+
+// ════════════════════════════════════════════════════════
+//  ⚠️  SETUP — Get a FREE API key in 2 minutes:
+//  1. Go to https://openweathermap.org/api
+//  2. Click "Sign Up" → confirm email
+//  3. Go to "API Keys" tab → copy the default key
+//  4. Paste it below replacing YOUR_API_KEY_HERE
+//  5. Wait ~10 minutes for it to activate
+// ════════════════════════════════════════════════════════
+
+const API_KEY = 'YOUR_API_KEY_HERE';
+
+// The two API endpoints we'll call:
+// 1. Current weather
+// 2. 5-day forecast (gives weather every 3 hours for 5 days)
+const BASE_URL      = 'https://api.openweathermap.org/data/2.5/weather';
+const FORECAST_URL  = 'https://api.openweathermap.org/data/2.5/forecast';
+
+
+// ── Select all the elements we'll update ─────────────────
+
+const cityInput     = document.getElementById('city-input');
+const searchBtn     = document.getElementById('search-btn');
+const loadingEl     = document.getElementById('loading');
+const errorEl       = document.getElementById('error');
+const weatherCard   = document.getElementById('weather-card');
+
+// Inside the card:
+const cityNameEl    = document.getElementById('city-name');
+const countryEl     = document.getElementById('country');
+const temperatureEl = document.getElementById('temperature');
+const weatherIconEl = document.getElementById('weather-icon');
+const feelsLikeEl   = document.getElementById('feels-like');
+const descriptionEl = document.getElementById('description');
+const humidityEl    = document.getElementById('humidity');
+const windEl        = document.getElementById('wind');
+const visibilityEl  = document.getElementById('visibility');
+const forecastStrip = document.getElementById('forecast-strip');
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 1 — async / await
+//
+//  Normally JavaScript runs top-to-bottom without waiting.
+//  But fetching data from the internet TAKES TIME (100ms–2s).
+//  Without async/await, your code would move on before
+//  the data arrives — so you'd get undefined.
+//
+//  'async' before a function means: "this function can pause
+//  and wait for things."
+//
+//  'await' before a promise means: "pause here until this
+//  finishes, THEN continue — but don't block other things."
+// ════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 2 — fetch()
+//
+//  fetch(url) makes an HTTP GET request to a URL and returns
+//  a Promise — a placeholder for data that will arrive later.
+//
+//  The two-step pattern:
+//  const response = await fetch(url);   // wait for server reply
+//  const data     = await response.json(); // parse JSON body
+//
+//  response.ok is true if the status code is 200–299.
+//  If the city isn't found, status is 404 → response.ok = false.
+// ════════════════════════════════════════════════════════
+
+async function getWeather(city) {
+
+  // Show loading, hide old results/errors
+  showState('loading');
+
+  try {
+
+    // ── Step 1: Build the URL ──────────────────────────
+    // Template literal to embed the city and key into the URL
+    // units=metric  → temperatures in Celsius
+    // units=imperial → temperatures in Fahrenheit
+    const weatherURL  = `${BASE_URL}?q=${city}&units=metric&appid=${API_KEY}`;
+    const forecastURL = `${FORECAST_URL}?q=${city}&units=metric&appid=${API_KEY}`;
+
+    // ── Step 2: Fetch BOTH endpoints at the same time ──
+    // Promise.all() takes an array of Promises and runs them
+    // IN PARALLEL — much faster than awaiting them one by one.
+    // It resolves when ALL of them have finished.
+    const [weatherRes, forecastRes] = await Promise.all([
+      fetch(weatherURL),
+      fetch(forecastURL)
+    ]);
+
+    // ── Step 3: Check if the request succeeded ─────────
+    // If city not found, OpenWeather returns status 404
+    if (!weatherRes.ok) {
+      // Throw an error — this jumps straight to the catch block
+      const errData = await weatherRes.json();
+      throw new Error(errData.message || 'City not found');
+    }
+
+    // ── Step 4: Parse the JSON response bodies ─────────
+    // .json() reads the response body and converts JSON → object
+    // It also returns a Promise, so we await it too
+    const weatherData  = await weatherRes.json();
+    const forecastData = await forecastRes.json();
+
+    // ── Step 5: Display the data ───────────────────────
+    displayWeather(weatherData);
+    displayForecast(forecastData);
+
+    // Save last search so it loads again on refresh
+    localStorage.setItem('lastCity', city);
+
+    showState('card');
+
+  } catch (error) {
+    // catch runs if:
+    // - fetch() itself fails (no internet)
+    // - we manually threw an Error (city not found)
+    // - response.json() fails (malformed response)
+    showError(error.message);
+  }
+}
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 3 — Working with API response data
+//
+//  The OpenWeather API sends back a big JSON object.
+//  We destructure the parts we need from it.
+//
+//  Destructuring: const { name, main } = data;
+//  is the same as: const name = data.name; const main = data.main;
+//  Just shorter and cleaner.
+// ════════════════════════════════════════════════════════
+
+function displayWeather(data) {
+  // Destructure the nested properties we need
+  const { name, sys, main, weather, wind, visibility } = data;
+  //       ^city  ^country ^temp    ^desc  ^wind speed  ^visibility
+
+  // weather is an ARRAY — we always take item [0] (the main condition)
+  const condition = weather[0];
+
+  cityNameEl.textContent    = name;
+  countryEl.textContent     = `${sys.country} · ${getLocalTime(data.timezone)}`;
+  temperatureEl.textContent = `${Math.round(main.temp)}°`;
+  feelsLikeEl.textContent   = `Feels like ${Math.round(main.feels_like)}°`;
+  descriptionEl.textContent = condition.description;
+  weatherIconEl.textContent = getWeatherEmoji(condition.id);
+  humidityEl.textContent    = `${main.humidity}%`;
+  windEl.textContent        = `${Math.round(wind.speed)} m/s`;
+  visibilityEl.textContent  = `${(visibility / 1000).toFixed(1)} km`;
+  //                                visibility is in metres → divide by 1000 for km
+}
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 4 — Processing arrays from API data
+//
+//  The forecast API returns 40 data points (every 3 hours
+//  for 5 days). We need to pick just ONE per day.
+//
+//  We use .reduce() to group forecasts by date,
+//  then .map() to transform each group into one summary.
+// ════════════════════════════════════════════════════════
+
+function displayForecast(data) {
+  forecastStrip.innerHTML = '';
+
+  // data.list is an array of 40 forecast objects.
+  // Each has a 'dt_txt' like "2024-06-16 12:00:00"
+
+  // ── Group by date using .reduce() ──────────────────────
+  // .reduce() builds up one value (here: an object) by
+  // processing each item in the array one at a time.
+  // 'acc' = accumulator (what we're building)
+  // 'item' = current forecast item
+  const byDay = data.list.reduce(function(acc, item) {
+    // Get just the date part: "2024-06-16"
+    const date = item.dt_txt.split(' ')[0];
+
+    // If we haven't seen this date yet, create an empty array for it
+    if (!acc[date]) acc[date] = [];
+
+    // Push this forecast item into that date's bucket
+    acc[date].push(item);
+
+    return acc;  // always return the accumulator
+  }, {});        // {} is the starting value (an empty object)
+
+  // byDay now looks like:
+  // { "2024-06-16": [...8 items], "2024-06-17": [...8 items], ... }
+
+  // ── Take the first 5 days ─────────────────────────────
+  // Object.keys() returns an array of an object's keys
+  const days = Object.keys(byDay).slice(0, 5);
+
+  // .map() transforms each day's key into HTML for one forecast card
+  days.forEach(function(date, index) {
+    const items = byDay[date];
+
+    // Find the midday forecast (closest to 12:00) for the icon/description
+    const midday = items.find(i => i.dt_txt.includes('12:00')) || items[0];
+
+    // Max temp = highest temp among all that day's forecasts
+    const maxTemp = Math.max(...items.map(i => i.main.temp_max));
+    // Math.max(...array) — spread turns the array into individual arguments
+
+    // Min temp = lowest temp
+    const minTemp = Math.min(...items.map(i => i.main.temp_min));
+
+    // Format the day name: "Mon", "Tue", etc.
+    const dayName = index === 0
+      ? 'Today'
+      : new Date(date).toLocaleDateString('en', { weekday: 'short' });
+
+    // Build the day card HTML
+    const dayCard = document.createElement('div');
+    dayCard.className = 'forecast-day';
+    dayCard.innerHTML = `
+      <div class="day-name">${dayName}</div>
+      <div class="day-icon">${getWeatherEmoji(midday.weather[0].id)}</div>
+      <div class="day-temp">${Math.round(maxTemp)}°</div>
+      <div class="day-low">${Math.round(minTemp)}°</div>
+    `;
+    forecastStrip.appendChild(dayCard);
+  });
+}
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 5 — Helper functions
+//
+//  Small, single-purpose functions that do one job.
+//  Keeps the main logic clean and readable.
+// ════════════════════════════════════════════════════════
+
+// Map OpenWeather condition IDs to emoji icons
+// Full list: https://openweathermap.org/weather-conditions
+function getWeatherEmoji(id) {
+  if (id >= 200 && id < 300) return '⛈️';   // thunderstorm
+  if (id >= 300 && id < 400) return '🌦️';   // drizzle
+  if (id >= 500 && id < 600) return '🌧️';   // rain
+  if (id >= 600 && id < 700) return '❄️';   // snow
+  if (id >= 700 && id < 800) return '🌫️';   // fog/mist/haze
+  if (id === 800)             return '☀️';   // clear sky
+  if (id === 801)             return '🌤️';   // few clouds
+  if (id >= 802 && id < 900) return '☁️';   // cloudy
+  return '🌡️';
+}
+
+// Convert timezone offset (seconds) to a local time string
+function getLocalTime(timezoneOffset) {
+  // Date.now() = milliseconds since epoch (UTC)
+  // timezoneOffset is in seconds → convert to ms
+  const localMs = Date.now() + timezoneOffset * 1000;
+  const d = new Date(localMs);
+  // toUTCString trick: get UTC time which equals the local time
+  return d.toUTCString().slice(17, 22);  // extracts "HH:MM"
+}
+
+// Show/hide the three UI states: loading, error, card
+function showState(state) {
+  loadingEl.style.display    = state === 'loading' ? 'block' : 'none';
+  errorEl.style.display      = 'none';
+  weatherCard.style.display  = state === 'card'    ? 'block' : 'none';
+}
+
+function showError(message) {
+  loadingEl.style.display   = 'none';
+  weatherCard.style.display = 'none';
+  errorEl.style.display     = 'block';
+  // Capitalise the first letter of the API's error message
+  errorEl.textContent = message.charAt(0).toUpperCase() + message.slice(1);
+}
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 6 — Event listeners + Enter key search
+// ════════════════════════════════════════════════════════
+
+searchBtn.addEventListener('click', function() {
+  const city = cityInput.value.trim();
+  if (city) getWeather(city);
+});
+
+cityInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const city = cityInput.value.trim();
+    if (city) getWeather(city);
+  }
+});
+
+
+// ════════════════════════════════════════════════════════
+//  CONCEPT 7 — Load last searched city from localStorage
+//
+//  On page load, if there's a saved city, fetch it again
+//  automatically so the user sees weather right away.
+// ════════════════════════════════════════════════════════
+
+const lastCity = localStorage.getItem('lastCity');
+if (lastCity) {
+  cityInput.value = lastCity;
+  getWeather(lastCity);
+}
+
+</script>
+</body>
+</html>
